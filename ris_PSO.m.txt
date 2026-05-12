@@ -1,0 +1,116 @@
+function [Theta_all, h_eff_est_all, MSE, RMSE] = ris_PSO(F, G, h_d, numParticles, maxIter, w, c1, c2)
+% RIS Phase Optimization using Particle Swarm Optimization (PSO)
+%
+% INPUTS:
+%   F, G      : [numSamples x N]
+%   h_d       : [numSamples x 1]
+%   numParticles : number of particles (default 20)
+%   maxIter      : iterations per sample (default 30)
+%   w, c1, c2    : PSO parameters
+%
+% OUTPUTS:
+%   Theta_all       : [numSamples x N] optimized RIS phases (complex)
+%   h_eff_est_all   : optimized h_eff per sample
+%   MSE, RMSE       : error metrics vs baseline (no phase)
+
+if nargin < 4 || isempty(numParticles), numParticles = 20; end
+if nargin < 5 || isempty(maxIter),      maxIter = 30; end
+if nargin < 6 || isempty(w),            w = 0.7;  end   % inertia
+if nargin < 7 || isempty(c1),           c1 = 1.5; end   % cognitive
+if nargin < 8 || isempty(c2),           c2 = 1.5; end   % social
+
+[numSamples, N] = size(F);
+
+Theta_all = ones(numSamples, N);
+h_eff_est_all = zeros(numSamples,1);
+
+% === MAIN LOOP OVER SAMPLES ===
+for s = 1:numSamples
+
+    Fs = F(s,:);
+    Gs = G(s,:);
+    hd = h_d(s);
+
+    a = Fs .* Gs;   % combined link coefficient
+
+    % === Initialize particle phases (phi) and velocities ===
+    phi = 2*pi*rand(numParticles, N);  % random phases
+    vel = zeros(numParticles, N);      % phase velocities
+
+    % === Evaluate initial fitness ===
+    z = exp(1j * phi);
+    h_eff = hd + sum(a .* z, 2);
+    fitness = abs(h_eff).^2;
+
+    % Best memory
+    pbest_phi = phi;          % particle best phases
+    pbest_fit = fitness;      % particle best fitness
+
+    % Global best (scalar)
+    [gbest_fit, idx] = max(fitness);
+    gbest_phi = phi(idx, :);
+
+    % === PSO Iterations ===
+    for t = 1:maxIter
+        
+        % Random factors
+        r1 = rand(numParticles, N);
+        r2 = rand(numParticles, N);
+
+        % Velocity update
+        vel = w * vel ...
+            + c1 * r1 .* (pbest_phi - phi) ...
+            + c2 * r2 .* (gbest_phi - phi);
+
+        % Phase update
+        phi = phi + vel;
+
+        % Wrap phases into [-pi, pi]
+        phi = angle(exp(1j * phi));
+
+        % Evaluate
+        z = exp(1j * phi);
+        h_eff = hd + sum(a .* z, 2);
+        fitness = abs(h_eff).^2;
+
+        % Update personal best
+        improved = fitness > pbest_fit;
+        pbest_phi(improved, :) = phi(improved, :);
+        pbest_fit(improved) = fitness(improved);
+
+        % Update global best
+        [bestInIter, idx2] = max(fitness);
+        if bestInIter > gbest_fit
+            gbest_fit = bestInIter;
+            gbest_phi = phi(idx2, :);
+        end
+    end
+
+    % Save final result
+    Theta_all(s,:) = exp(1j * gbest_phi);
+    h_eff_est_all(s) = hd + sum(a .* Theta_all(s,:));
+
+    if mod(s,5000) == 0
+        fprintf("PSO processed %d/%d samples\n", s, numSamples);
+    end
+end
+
+% Baseline (no phase control)
+h_eff_baseline = h_d + sum(G .* F, 2);
+
+% Error metrics
+MSE = mean(abs(h_eff_baseline - h_eff_est_all).^2);
+RMSE = sqrt(MSE);
+
+fprintf("PSO MSE  = %.6e\n", MSE);
+fprintf("PSO RMSE = %.6e\n", RMSE);
+
+end
+
+%numParticles = 25;
+%maxIter = 40;
+%w = 0.7;   % inertia
+%c1 = 1.4;  % cognitive
+%c2 = 1.4;  % social
+
+%[Theta_all, h_eff_PSO, MSE, RMSE] = ris_PSO(F, G, h_d, numParticles, maxIter, w, c1, c2);

@@ -1,0 +1,35 @@
+%SPA – Successive Phase Alignment
+function [Theta_all, h_eff_est, MSE, RMSE] = ris_SPA(F, G, h_d)
+
+[numSamples, N] = size(F);
+
+Theta_all = ones(numSamples, N);
+h_eff_est = zeros(numSamples,1);
+
+for s = 1:numSamples
+    Fs = F(s,:); Gs = G(s,:); hd = h_d(s);
+    Theta = ones(1,N);
+    H_eff = hd;
+    
+    for n = 1:N
+        % Optimal phase alignment
+        phi_n = angle(H_eff) - angle(Gs(n) * Fs(n));
+        phi_n = mod(phi_n+pi,2*pi)-pi;
+        Theta(n) = exp(1j*phi_n);
+        
+        % Update effective channel
+        H_eff = H_eff + Gs(n) * Fs(n) * Theta(n);
+    end
+    Theta_all(s,:) = Theta;
+    h_eff_est(s) = H_eff;
+end
+
+% MSE/RMSE
+h_eff_true = h_d + sum(G.*F,2);
+MSE = mean(abs(h_eff_true - h_eff_est).^2);
+RMSE = sqrt(MSE);
+
+fprintf('SPA MSE  = %.6f\n', MSE);
+fprintf('SPA RMSE = %.6f\n', RMSE);
+
+end

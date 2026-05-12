@@ -1,0 +1,44 @@
+
+%[Theta_all, h_eff_est_all, MSE, RMSE] = ris_PGD(F, G, h_d, 0.2, 50)
+%Projected Gradient Descent (PGD)
+function [Theta_all, h_eff_est_all, MSE, RMSE] = ris_PGD(F, G, h_d, stepSize, maxIter)
+% stepSize = PGD adım büyüklüğü
+
+if nargin < 4 || isempty(stepSize)
+    stepSize = 0.2;   % default
+end
+if nargin < 5 || isempty(maxIter)
+    maxIter = 10;     % default
+end
+
+[numSamples, N] = size(F);
+
+Theta_all = ones(numSamples, N);
+h_eff_est_all = zeros(numSamples,1);
+
+for s = 1:numSamples
+    Fs = F(s,:);
+    Gs = G(s,:);
+    hd = h_d(s);
+
+    a = Gs .* Fs;
+    z = ones(1,N);
+
+    for it = 1:maxIter
+        h = hd + sum(a .* z);
+        step = stepSize * (conj(h) * a);
+        z = z + step;
+        z = exp(1j * angle(z));
+    end
+
+    Theta_all(s,:) = z;
+    h_eff_est_all(s) = hd + sum(a .* z);
+end
+
+h_eff_baseline = h_d + sum(G .* F, 2);
+MSE = mean(abs(h_eff_baseline - h_eff_est_all).^2);
+RMSE = sqrt(MSE);
+
+fprintf('PGD MSE  = %.6e\n', MSE);
+fprintf('PGD RMSE = %.6e\n', RMSE);
+end

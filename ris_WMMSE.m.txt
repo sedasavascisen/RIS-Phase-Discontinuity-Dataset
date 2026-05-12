@@ -1,0 +1,35 @@
+%WMMSE – Weighted MMSE Optimization
+function [Theta_all, h_eff_est, MSE, RMSE] = ris_WMMSE(F, G, h_d, maxIter)
+
+if nargin<4, maxIter=1; end
+[numSamples, N] = size(F);
+Theta_all = ones(numSamples,N);
+h_eff_est = zeros(numSamples,1);
+
+for s = 1:numSamples
+    Fs = F(s,:); Gs = G(s,:); hd = h_d(s);
+    Theta = ones(1,N);
+    
+    for it = 1:maxIter
+        H_eff = hd + sum(Gs .* (Theta.*Fs));
+        for n = 1:N
+            % Weighted MMSE gradient step (basitleştirilmiş)
+            grad = -2*imag(conj(Gs(n)*Fs(n)) * H_eff);
+            theta_n = angle(Theta(n)) - 0.1*grad; % 0.1: step size
+            theta_n = mod(theta_n+pi,2*pi)-pi;
+            Theta(n) = exp(1j*theta_n);
+        end
+    end
+    
+    Theta_all(s,:) = Theta;
+    h_eff_est(s) = hd + sum(Gs.*(Theta.*Fs));
+end
+
+h_eff_true = h_d + sum(G.*F,2);
+MSE = mean(abs(h_eff_true - h_eff_est).^2);
+RMSE = sqrt(MSE);
+
+fprintf('WMMSE MSE  = %.6f\n', MSE);
+fprintf('WMMSE RMSE = %.6f\n', RMSE);
+
+end

@@ -1,0 +1,34 @@
+%AO – Alternating Optimization
+function [Theta_all, h_eff_est, MSE, RMSE] = ris_AO(F, G, h_d, maxIter)
+
+if nargin < 4, maxIter = 1; end
+[numSamples, N] = size(F);
+Theta_all = ones(numSamples, N);
+h_eff_est = zeros(numSamples,1);
+
+for s = 1:numSamples
+    Fs = F(s,:); Gs = G(s,:); hd = h_d(s);
+    Theta = ones(1,N);
+    
+    for it = 1:maxIter
+        for n = 1:N
+            idx = true(1,N); idx(n)=false;
+            H_minus_n = hd + sum(Gs(idx) .* (Theta(idx).*Fs(idx)));
+            theta_n = angle(H_minus_n) - angle(Gs(n)*Fs(n));
+            theta_n = mod(theta_n+pi,2*pi)-pi;
+            Theta(n) = exp(1j*theta_n);
+        end
+    end
+    
+    Theta_all(s,:) = Theta;
+    h_eff_est(s) = hd + sum(Gs.*(Theta.*Fs));
+end
+
+h_eff_true = h_d + sum(G.*F,2);
+MSE = mean(abs(h_eff_true - h_eff_est).^2);
+RMSE = sqrt(MSE);
+
+fprintf('AO MSE  = %.6f\n', MSE);
+fprintf('AO RMSE = %.6f\n', RMSE);
+
+end
