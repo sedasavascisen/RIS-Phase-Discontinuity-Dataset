@@ -1,28 +1,30 @@
+% Scalability_Analysis_CORRECTED.m
+% =========================================================
+
 clear; close all; clc;
 
 %% ──────────────────────────────────────────────────────
 N_vals = [32, 64, 128, 256];
 
-% --- CNN-LSTM: O(N) --- (makale Table 8 ile birebir - degismedi)
+% --- CNN-LSTM: O(N) --- (identical to paper's Table 8, unchanged)
 time_cnn = [0.08, 0.16, 0.32, 0.64];
 
-% --- CD K=5: O(K*N^2) --- MAKALENIN GERCEK YAYIMLANMIS DEGERLERI
-% Kaynak: Table 6 (N=32, K=5 -> 0.15 ms) + Table 8 notu (N=64/128/256)
+% --- CD K=5: O(K*N^2) --- ACTUAL PUBLISHED VALUES FROM THE PAPER
+% Source: Table 6 (N=32, K=5 -> 0.15 ms) + Table 8 note (N=64/128/256)
 time_cd_k5 = [0.15, 3.04, 12.2, 73.0];
-time_cd_k5_source = {'Table 6 (N=32,K=5)', 'Table 8 notu', 'Table 8 notu', 'Table 8 notu / Figure 1'};
 
-% --- Transformer: O(N^2) --- N=32 ve N=256 MAKALEDEN, N=64/128 INTERPOLE
-transformer_N32  = 1.1;    % Figure 1 aciklamasi + Table 8 notu
-transformer_N256 = 48.6;   % Figure 1 aciklamasi + Table 8 notu
-b_fit = log(transformer_N256/transformer_N32) / log(256/32);   % ~1.82 (guc-yasasi usteli)
+% --- Transformer: O(N^2) --- N=32 and N=256 from the paper, N=64/128 interpolated
+transformer_N32  = 1.1;    % Figure 1 caption + Table 8 note
+transformer_N256 = 48.6;   % Figure 1 caption + Table 8 note
+b_fit = log(transformer_N256/transformer_N32) / log(256/32);   % ~1.82 (fitted exponent)
 time_transformer = transformer_N32 * (N_vals/32).^b_fit;
-time_transformer_isMeasured = [true, false, false, true];   % N=64,128 = interpole
+time_transformer_isMeasured = [true, false, false, true];   % N=64,128 = interpolated
 
-fprintf('Transformer icin uydurulan guc-yasasi usteli: b=%.3f (teorik O(N^2) icin b=2 beklenir)\n', b_fit);
-fprintf('  Bu, gercek dunyada olcumlerin saf teorik karmasiklikla birebir\n');
-fprintf('  ortusmedigini gosteriyor (donanim/batching etkileri) - CD dizisinde\n');
-fprintf('  de benzer bir durum var (N=32->64 arasi oran O(N^2) beklenen 4''un\n');
-fprintf('  cok uzerinde: %.1fx).\n\n', time_cd_k5(2)/time_cd_k5(1));
+fprintf('Fitted power-law exponent for Transformer: b=%.3f (theoretical O(N^2) would give b=2)\n', b_fit);
+fprintf('  This shows that real-world measurements do not follow the pure\n');
+fprintf('  theoretical complexity exactly (hardware/batching effects) - the\n');
+fprintf('  CD array shows a similar pattern (the N=32->64 ratio is %.1fx,\n', time_cd_k5(2)/time_cd_k5(1));
+fprintf('  far above the O(N^2)-predicted 4x).\n\n');
 
 URLLC_limit = 1.0;   % 6G URLLC (ms)
 
@@ -53,8 +55,7 @@ h3 = semilogy(ax, N_vals, time_transformer, ...
     'Color', clr_tr, 'MarkerFaceColor', clr_tr, ...
     'DisplayName', 'Transformer  [O(N^{2})]');
 
-% N=64,128 Transformer noktalarini "interpole edilmis" olarak ayirt et
-% (ic ice bosluklu marker ile)
+% Mark the interpolated (N=64, N=128) Transformer points with hollow rings
 plot(ax, N_vals([2 3]), time_transformer([2 3]), 'o', ...
     'MarkerSize', 13, 'MarkerEdgeColor', clr_tr, 'MarkerFaceColor', 'none', ...
     'LineWidth', 1.5, 'HandleVisibility', 'off');
@@ -63,14 +64,14 @@ h4 = yline(ax, URLLC_limit, '--', ...
     'LineWidth', 2.2, 'Color', clr_urllc, ...
     'DisplayName', '6G URLLC Limit (1 ms)');
 
-%% ─── URLLC ─────────────────────────
+%% ─── URLLC safe zone shading ─────────────────────────
 x_fill = [N_vals(1), N_vals(end), N_vals(end), N_vals(1)];
 y_fill = [URLLC_limit, URLLC_limit, 0.03, 0.03];
 fill(ax, x_fill, y_fill, [0.85 1.0 0.85], ...
     'FaceAlpha', 0.18, 'EdgeColor', 'none', ...
     'HandleVisibility', 'off');
 
-%% ─── CNN-LSTM etiketleri ────────────────────
+%% ─── CNN-LSTM labels ────────────────────
 cnn_labels = {'0.08 ms', '0.16 ms', '0.32 ms', '0.64 ms'};
 for i = 1:length(N_vals)
     text(ax, N_vals(i) + 6, time_cnn(i) * 1.45, ...
@@ -79,7 +80,7 @@ for i = 1:length(N_vals)
         'Color', clr_cnn, 'FontWeight', 'bold');
 end
 
-%% ─── CD etiketleri ───────────────
+%% ─── CD labels ───────────────
 cd_labels = {'0.15 ms', '3.04 ms  x', '12.2 ms  x', '73.0 ms  x'};
 cd_offsets_y = [1.6, 1.55, 1/1.8, 1.6];
 for i = 1:length(N_vals)
@@ -89,7 +90,7 @@ for i = 1:length(N_vals)
         'Color', clr_cd, 'FontWeight', 'bold');
 end
 
-%% ─── Transformer etiketleri (interpole olanlar "~" ile isaretli) ──
+%% ─── Transformer labels (interpolated points marked with "~") ──
 tr_labels = {'1.10 ms  x', '~3.89 ms  x', '~13.7 ms  x', '48.6 ms  x'};
 for i = 1:length(N_vals)
     text(ax, N_vals(i) - 4, time_transformer(i) / 1.7, ...
@@ -108,7 +109,7 @@ text(ax, 34, 8.0, '\uparrow Exceeds URLLC Limit', ...
     'FontName', 'Times New Roman', 'FontSize', 13, ...
     'Color', [0.75 0.10 0.10], 'FontAngle', 'italic');
 
-text(ax, 34, 0.055, '\circ = interpole edilmis (olculmemis) nokta', ...
+text(ax, 34, 0.055, '\circ = interpolated (not measured) point', ...
     'FontName', 'Times New Roman', 'FontSize', 10, ...
     'Color', clr_tr, 'FontAngle', 'italic');
 
@@ -123,7 +124,7 @@ xlabel(ax, 'Number of RIS Elements (N)', ...
     'FontName', 'Times New Roman', 'FontSize', 13, 'FontWeight', 'bold');
 ylabel(ax, 'Inference Latency [ms] (Log Scale)', ...
     'FontName', 'Times New Roman', 'FontSize', 13, 'FontWeight', 'bold');
-title(ax, 'Scalability Analysis: Inference Latency vs. N (Duzeltilmis)', ...
+title(ax, 'Scalability Analysis: Inference Latency vs. N (Corrected)', ...
     'FontName', 'Times New Roman', 'FontSize', 13, 'FontWeight', 'bold');
 
 %% ────────────────────────────────────────────
@@ -158,30 +159,31 @@ exportgraphics(fig, 'Figure_10_Scalability_CORRECTED.png', 'Resolution', 600);
 %% ──────────────────────────────────────────
 fprintf('\n');
 fprintf('==========================================================\n');
-fprintf('  TABLO (DUZELTILMIS): Olceklenebilirlik - Cikarim Suresi (ms/ornek)\n');
+fprintf('  TABLE (CORRECTED): Scalability - Inference Latency (ms/sample)\n');
 fprintf('==========================================================\n');
 fprintf('%-5s %12s %14s %18s\n','N','CNN-LSTM','CD (K=5)','Transformer');
 fprintf('----------------------------------------------------------\n');
 for i = 1:length(N_vals)
     cd_f = ''; tr_f = '';
-    if time_cd_k5(i)       > URLLC_limit, cd_f = ' [URLLC ASILI]'; end
-    if time_transformer(i) > URLLC_limit, tr_f = ' [URLLC ASILI]'; end
+    if time_cd_k5(i)       > URLLC_limit, cd_f = ' [URLLC EXCEEDED]'; end
+    if time_transformer(i) > URLLC_limit, tr_f = ' [URLLC EXCEEDED]'; end
     tr_note = '';
-    if ~time_transformer_isMeasured(i), tr_note = ' (interpole)'; end
+    if ~time_transformer_isMeasured(i), tr_note = ' (interpolated)'; end
     fprintf('N=%-6d %8.2f ms %10.2f ms%s %12.2f ms%s%s\n', ...
         N_vals(i), time_cnn(i), ...
         time_cd_k5(i),      cd_f, ...
         time_transformer(i), tr_f, tr_note);
 end
 fprintf('==========================================================\n');
-fprintf('KAYNAK NOTU:\n');
-fprintf('  CD  N=32       : Table 6 (CD, K=5 sutunu)\n');
-fprintf('  CD  N=64/128/256: Table 8 notu (deneysel olcum)\n');
-fprintf('  Tr  N=32,256    : Figure 1 aciklamasi + Table 8 notu (deneysel)\n');
-fprintf('  Tr  N=64,128    : bu script tarafindan guc-yasasi ile INTERPOLE\n');
-fprintf('                    EDILDI (b=%.3f) - GERCEK OLCUM DEGIL.\n', b_fit);
+fprintf('SOURCE NOTES:\n');
+fprintf('  CD  N=32        : Table 6 (CD, K=5 column)\n');
+fprintf('  CD  N=64/128/256: Table 8 note (experimental measurement)\n');
+fprintf('  Tr  N=32,256     : Figure 1 caption + Table 8 note (experimental)\n');
+fprintf('  Tr  N=64,128     : INTERPOLATED via power-law fit by this script\n');
+fprintf('                     (b=%.3f) - NOT an experimental measurement.\n', b_fit);
 fprintf('==========================================================\n');
-fprintf('\nKaydedildi:\n');
+fprintf('\nSaved:\n');
 fprintf('  Figure_10_Scalability_CORRECTED.eps\n');
 fprintf('  Figure_10_Scalability_CORRECTED.jpg (300 dpi)\n');
 fprintf('  Figure_10_Scalability_CORRECTED.png (600 dpi)\n');
+
