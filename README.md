@@ -120,24 +120,34 @@ For scalability experiments (N = 64, 128), change `M` and `K` in `RIS_dataset_la
 
 ---
 
-## Results summary (Table 4)
+## Results summary (Table 6 in the paper)
 
-| Method | RMSE [°] | Latency [ms] | URLLC |
-|---|---|---|---|
-| **CNN-LSTM (proposed)** | **2.77** | **0.08** | ✓ |
-| CD (K=5) | 3.50 | 0.15 | ✓ |
-| AO (K=5) | 3.50 | 0.15 | ✓ |
-| PGD | 4.00 | 0.12 | ✓ |
-| WMMSE | 4.00 | 0.13 | ✓ |
-| PSO | 4.50 | 8.20 | ✗ |
-| SPA | 5.00 | 0.09 | ✓ |
-| Transformer | 3.41 | 1.14 | ✗ |
-| FC-DNN (sin/cos) | 2.91 | 0.04 | ✓ |
+| Method | RMSE [°] | SR@5° | Latency [ms] | Complexity | URLLC |
+|---|---|---|---|---|---|
+| **CNN-LSTM (proposed)** | **2.77 ± 1.15** | **95%** | **0.08** | O(N) | ✓ |
+| CD | 3.50 ± 1.42 | 78% | 0.15 | O(KN²) | ✓ |
+| AO | 3.50 ± 1.38 | 78% | 0.18 | O(KN²) | ✓ |
+| PGD | 4.00 ± 1.68 | 71% | 0.50 | O(IN) | ✓ |
+| WMMSE | 4.00 ± 1.65 | 71% | 0.20 | O(KN²) | ✓ |
+| PSO | 4.50 ± 1.88 | 64% | 15.0 | O(PIN) | ✗ |
+| SPA | 5.00 ± 2.15 | 57% | 0.05 | O(N) | ✓ |
+| FC-DNN (direct θ) | 3.95 ± 1.71 | 82% | 0.04 | O(N) | ✓ |
+| FC-DNN (sin/cos) | 3.41 ± 1.50 | 89% | 0.04 | O(N) | ✓ |
+| CNN-Transformer | 2.91 ± 1.22 | 93% | 0.11†  | O(N²) | ✓† |
+| GCN (spatial) | 3.12 ± 1.33 | 91% | 0.09 | O(N) | ✓ |
 
 CNN-LSTM achieves the lowest RMSE while staying under the 1 ms URLLC constraint.
 
----
-
+> **† Note on CNN-Transformer latency:** Table 6 in the published paper
+> lists 0.11 ms for this value, while the Figure 1 caption and Table 8
+> note in the same paper report 1.1 ms for N=32 — a 10× discrepancy,
+> likely a decimal-point transcription error. This repository's own
+> scalability script previously used ~1.14 ms, consistent with the
+> Figure 1/Table 8 values. We are verifying against raw experiment logs
+> and will update this note (and, if warranted, submit a corrigendum)
+> accordingly. This does not affect the paper's central conclusions.
+>
+> 
 ## Citation
 
 If you use this code, please cite:
